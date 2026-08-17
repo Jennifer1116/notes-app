@@ -1067,6 +1067,7 @@ button {
       await githubPutFile(envelope, "初始化密碼庫");
       state.vaultKey = vaultKey;
       state.entries = [];
+      state.pendingEnvelope = envelope;
       $("#recovery-key-display").textContent = recoveryKeyPlain;
       showScreen("recoveryShow");
     } catch (e) {
