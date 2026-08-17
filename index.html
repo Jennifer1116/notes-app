@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vault 密碼庫</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #14161a;
+  --panel: #1c1f26;
+  --panel-2: #232730;
+  --border: #2e333d;
+  --text: #e8eaed;
+  --text-dim: #9aa1ac;
+  --accent: #4f8cff;
+  --accent-2: #2f6fe0;
+  --danger: #e5566d;
+  --success: #4caf7d;
+  --radius: 10px;
+  font-size: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Noto Sans TC", sans-serif;
+  min-height: 100vh;
+}
+
+.screen { display: none; min-height: 100vh; }
+.screen.active { display: block; }
+
+.center-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.card h1 {
+  font-size: 1.3rem;
+  margin: 0 0 4px;
+}
+.card .subtitle {
+  color: var(--text-dim);
+  font-size: 0.88rem;
+  margin-bottom: 24px;
+}
+
+label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin: 14px 0 6px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+textarea { resize: vertical; min-height: 70px; }
+
+input:focus, textarea:focus, select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.92rem;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 11px 16px;
+  width: 100%;
+  margin-top: 20px;
+  font-weight: 600;
+}
+.btn-primary:hover { background: var(--accent-2); }
+.btn-primary:disabled { opacity: 0.6; cursor: default; }
+
+.btn-secondary {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 9px 14px;
+}
+.btn-secondary:hover { border-color: var(--accent); }
+
+.btn-text {
+  background: none;
+  color: var(--accent);
+  padding: 4px 0;
+  font-size: 0.85rem;
+}
+
+.error-msg {
+  color: var(--danger);
+  font-size: 0.83rem;
+  margin-top: 10px;
+  min-height: 1.1em;
+}
+
+.hint-box {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.83rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: 16px;
+}
+.hint-box.warn {
+  border-color: #6b4a1f;
+  background: #2a2114;
+  color: #e0b271;
+}
+
+.strength-meter { font-size: 0.8rem; margin-top: 6px; }
+.strength-meter.s0, .strength-meter.s1 { color: var(--danger); }
+.strength-meter.s2, .strength-meter.s3 { color: #d9a441; }
+.strength-meter.s4, .strength-meter.s5 { color: var(--success); }
+
+/* Recovery key 顯示 */
+.recovery-key-box {
+  background: var(--panel-2);
+  border: 1px dashed var(--accent);
+  border-radius: 8px;
+  padding: 18px;
+  text-align: center;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 1.15rem;
+  letter-spacing: 1px;
+  margin: 16px 0;
+  word-break: break-all;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+.checkbox-row input { margin-top: 3px; }
+
+/* ------- 主畫面 ------- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.app-header h1 { font-size: 1.1rem; margin: 0; white-space: nowrap; }
+.header-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sync-status { font-size: 0.8rem; color: var(--success); min-width: 90px; }
+
+.search-bar { padding: 16px 20px 0; max-width: 900px; margin: 0 auto; }
+.search-bar input { max-width: 100%; }
+
+.entry-list {
+  max-width: 900px;
+  margin: 16px auto 60px;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.entry-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.entry-main { min-width: 140px; }
+.entry-name { font-weight: 600; }
+.entry-sub { color: var(--text-dim); font-size: 0.83rem; margin-top: 2px; }
+
+.entry-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.icon-btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+.icon-btn:hover { border-color: var(--accent); }
+
+.empty-state {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 60px 20px;
+  font-size: 0.9rem;
+}
+
+/* ------- Modal ------- */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+.modal-overlay.active { display: flex; }
+.modal-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.modal-box h2 { margin: 0 0 18px; font-size: 1.1rem; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.password-field-row { display: flex; gap: 8px; align-items: flex-start; }
+.password-field-row input { flex: 1; }
+
+.generator-panel {
+  display: none;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-top: 10px;
+}
+.generator-panel.active { display: block; }
+.gen-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.85rem; }
+.gen-row input[type="range"] { flex: 1; }
+.gen-checkboxes { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; font-size: 0.83rem; }
+.gen-checkboxes label { display: flex; align-items: center; gap: 4px; }
+.gen-output-row { display: flex; gap: 8px; margin-top: 8px; }
+.gen-output-row input { font-family: monospace; flex: 1; }
+
+.duplicate-row {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.duplicate-name { font-size: 0.88rem; margin-bottom: 8px; }
+.duplicate-options { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.83rem; color: var(--text-dim); }
+.duplicate-options label { display: flex; align-items: center; gap: 4px; }
+
+@media (max-width: 480px) {
+  .card { padding: 22px; }
+  .app-header { padding: 12px 14px; }
+  .entry-card { flex-direction: column; align-items: flex-start; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ============ 1. GitHub 連線設定 ============ -->
+<div id="screen-github-config" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <h1>連接 GitHub 儲存庫</h1>
+      <p class="subtitle">密碼庫的加密資料會存放在你的 Private GitHub repo，程式本身不會另外傳送資料到任何地方。</p>
+
+      <label for="cfg-owner">GitHub 帳號 / 組織名稱</label>
+      <input type="text" id="cfg-owner" placeholder="例如 jennifer-gu" />
+
+      <label for="cfg-repo">Repository 名稱</label>
+      <input type="text" id="cfg-repo" placeholder="notes-app" />
+
+      <label for="cfg-path">資料檔路徑</label>
+      <input type="text" id="cfg-path" placeholder="data/vault.json" value="data/vault.json" />
+
+      <label for="cfg-branch">分支</label>
+      <input type="text" id="cfg-branch" placeholder="main" value="main" />
+
+      <label for="cfg-pat">Personal Access Token</label>
+      <input type="password" id="cfg-pat" placeholder="每次使用需手動貼上，不會被儲存" autocomplete="off" />
+
+      <button id="btn-github-continue" class="btn-primary">連線並繼續</button>
+      <div class="error-msg" id="github-config-error"></div>
+
+      <div class="hint-box">
+        Token 需要具備此 repo 的 Contents 讀寫權限（Fine-grained token → Only select repositories → Contents: Read and write）。帳號、repo 名稱與路徑會存在這台裝置的瀏覽器中方便下次使用，但 Token 不會被儲存。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 2. 首次建立 Vault ============ -->
+<div id="screen-setup" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <h1>建立密碼庫</h1>
+      <p class="subtitle">這個 repo 裡還沒有密碼庫，設定一組主密碼來建立一個新的。</p>
+
+      <label for="setup-master-password">主密碼</label>
+      <input type="password" id="setup-master-password" autocomplete="new-password" />
+      <div class="strength-meter" id="setup-strength-meter"></div>
+
+      <label for="setup-master-password-confirm">再次輸入主密碼</label>
+      <input type="password" id="setup-master-password-confirm" autocomplete="new-password" />
+
+      <button id="btn-setup-create" class="btn-primary">建立密碼庫</button>
+      <div class="error-msg" id="setup-error"></div>
+
+      <div class="hint-box warn">
+        主密碼不會被儲存在任何地方，只用來解鎖資料。忘記主密碼時可用 Recovery Key 重設（下一步會產生），但兩者都遺失將無法復原資料。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 3. 顯示 Recovery Key（僅一次） ============ -->
+<div id="screen-recovery-show" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <h1>保存你的 Recovery Key</h1>
+      <p class="subtitle">這組金鑰只會顯示這一次，用來在忘記主密碼時重新設定。請抄下來存放在安全的地方（例如紙本、另一個安全位置），不要只存在這台裝置上。</p>
+
+      <div class="recovery-key-box" id="recovery-key-display">VK-XXXX-XXXX-XXXX-XXXX-XXXX</div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="recovery-confirm-checkbox" />
+        <span>我已經將這組 Recovery Key 保存到安全的地方</span>
+      </label>
+
+      <button id="btn-recovery-confirm" class="btn-primary">完成，進入密碼庫</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 4. 解鎖畫面 ============ -->
+<div id="screen-unlock" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <h1>解鎖密碼庫</h1>
+      <p class="subtitle">輸入主密碼以解鎖。</p>
+
+      <label for="unlock-master-password">主密碼</label>
+      <input type="password" id="unlock-master-password" autocomplete="current-password" />
+
+      <button id="btn-unlock" class="btn-primary">解鎖</button>
+      <div class="error-msg" id="unlock-error"></div>
+
+      <button id="link-forgot-password" class="btn-text">忘記主密碼？</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 5. 用 Recovery Key 重設 ============ -->
+<div id="screen-recovery-unlock" class="screen">
+  <div class="center-wrap">
+    <div class="card">
+      <h1>使用 Recovery Key 重設主密碼</h1>
+
+      <label for="recovery-key-input">Recovery Key</label>
+      <input type="text" id="recovery-key-input" placeholder="VK-XXXX-XXXX-XXXX-XXXX-XXXX" />
+
+      <label for="recovery-new-password">新主密碼</label>
+      <input type="password" id="recovery-new-password" />
+
+      <label for="recovery-new-password-confirm">再次輸入新主密碼</label>
+      <input type="password" id="recovery-new-password-confirm" />
+
+      <button id="btn-recovery-unlock" class="btn-primary">驗證並重設主密碼</button>
+      <div class="error-msg" id="recovery-unlock-error"></div>
+
+      <button id="link-back-to-unlock" class="btn-text">返回一般解鎖</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 6. 主畫面 ============ -->
+<div id="screen-main" class="screen">
+  <div class="app-header">
+    <h1>🔐 Vault 密碼庫</h1>
+    <div class="header-actions">
+      <span class="sync-status" id="sync-status"></span>
+      <button class="btn-secondary" id="btn-add-entry">＋ 新增</button>
+      <button class="btn-secondary" id="btn-export-excel">匯出 Excel</button>
+      <button class="btn-secondary" id="btn-import-excel">匯入 Excel</button>
+      <button class="btn-secondary" id="btn-lock">鎖定</button>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="search-input" placeholder="搜尋名稱、網址、ID 或備註…" />
+  </div>
+
+  <div class="entry-list" id="entry-list"></div>
+
+  <input type="file" id="import-file-input" accept=".xlsx,.xls" style="display:none" />
+</div>
+
+<!-- ============ 新增/編輯 Modal ============ -->
+<div class="modal-overlay" id="entry-modal">
+  <div class="modal-box">
+    <h2 id="modal-title">新增項目</h2>
+
+    <label for="field-name">名稱 *</label>
+    <input type="text" id="field-name" />
+
+    <label for="field-url">網址</label>
+    <input type="text" id="field-url" placeholder="https://" />
+
+    <label for="field-username">ID / 帳號</label>
+    <input type="text" id="field-username" />
+
+    <label for="field-password">密碼 *</label>
+    <div class="password-field-row">
+      <input type="text" id="field-password" />
+      <button class="btn-secondary" id="btn-open-generator">🎲 產生</button>
+    </div>
+
+    <div class="generator-panel" id="generator-panel">
+      <div class="gen-row">
+        <span>長度</span>
+        <input type="range" id="gen-length" min="8" max="64" value="16" />
+        <span id="gen-length-label">16</span>
+      </div>
+      <div class="gen-checkboxes">
+        <label><input type="checkbox" id="gen-upper" checked /> 大寫</label>
+        <label><input type="checkbox" id="gen-lower" checked /> 小寫</label>
+        <label><input type="checkbox" id="gen-digits" checked /> 數字</label>
+        <label><input type="checkbox" id="gen-symbols" checked /> 符號</label>
+      </div>
+      <div class="gen-output-row">
+        <input type="text" id="gen-output" readonly />
+        <button class="btn-secondary" id="btn-gen-refresh">🔄</button>
+        <button class="btn-secondary" id="btn-gen-use">使用</button>
+      </div>
+    </div>
+
+    <label for="field-notes">備註</label>
+    <textarea id="field-notes"></textarea>
+
+    <div class="error-msg" id="modal-error"></div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-modal-cancel">取消</button>
+      <button class="btn-primary" id="btn-modal-save" style="width:auto;margin-top:0;">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Excel 匯出確認 Modal ============ -->
+<div class="modal-overlay" id="export-confirm-modal">
+  <div class="modal-box">
+    <h2>匯出完整 Excel</h2>
+    <div class="hint-box warn">此檔案將包含所有密碼的明碼內容，請妥善保管，建議使用後刪除。</div>
+    <label for="export-confirm-password">請再次輸入主密碼確認</label>
+    <input type="password" id="export-confirm-password" />
+    <div class="error-msg" id="export-confirm-error"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-export-cancel">取消</button>
+      <button class="btn-primary" id="btn-export-confirm" style="width:auto;margin-top:0;">確認匯出</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Excel 匯入重複處理 Modal ============ -->
+<div class="modal-overlay" id="import-duplicates-modal">
+  <div class="modal-box">
+    <h2>發現重複名稱</h2>
+    <p class="subtitle">以下項目的名稱與現有資料重複，請選擇處理方式：</p>
+    <div id="duplicates-list"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-duplicates-cancel">取消匯入這些項目</button>
+      <button class="btn-primary" id="btn-duplicates-apply" style="width:auto;margin-top:0;">套用選擇</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   Vault — 獨立加密密碼管理程式
+   全部邏輯皆在瀏覽器端執行，不使用任何自建伺服器。
+   資料儲存後端：GitHub repo（透過 GitHub REST API 讀寫）。
+   ========================================================= */
+
+(function () {
+  "use strict";
+
+  /* ---------- 常數 ---------- */
+  const PBKDF2_ITERATIONS = 600000;
+  const IDLE_LOCK_MS = 5 * 60 * 1000; // 5 分鐘閒置自動鎖定
+  const CLIPBOARD_CLEAR_MS = 30 * 1000; // 複製後 30 秒清除剪貼簿
+  const LS_CONFIG_KEY = "vaultapp_github_config"; // 只存 owner/repo/path/branch，不存 PAT
+
+  /* ---------- 全域執行期狀態（絕不落地儲存） ---------- */
+  const state = {
+    pat: null, // Personal Access Token，僅存於記憶體
+    owner: "",
+    repo: "",
+    path: "data/vault.json",
+    branch: "main",
+    fileSha: null, // GitHub 檔案目前版本的 sha，更新時需要
+    vaultKey: null, // CryptoKey，用來加解密 entries
+    entries: [], // 解密後的密碼項目陣列
+    lastActivity: Date.now(),
+    idleTimer: null,
+    clipboardTimer: null,
+    pendingDuplicates: [], // Excel 匯入時待決議的重複項目
+  };
+
+  /* ---------- DOM 參照 ---------- */
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  const screens = {
+    githubConfig: $("#screen-github-config"),
+    unlock: $("#screen-unlock"),
+    setup: $("#screen-setup"),
+    recoveryShow: $("#screen-recovery-show"),
+    recoveryUnlock: $("#screen-recovery-unlock"),
+    main: $("#screen-main"),
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach((el) => el.classList.remove("active"));
+    screens[name].classList.add("active");
+  }
+
+  /* =========================================================
+     工具：base64 / bytes 轉換
+     ========================================================= */
+  function bufToB64(buf) {
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function b64ToBuf(b64) {
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  function utf8Encode(str) {
+    return new TextEncoder().encode(str);
+  }
+
+  function utf8Decode(buf) {
+    return new TextDecoder().decode(buf);
+  }
+
+  function randomBytes(len) {
+    const arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return arr;
+  }
+
+  /* =========================================================
+     加密核心：PBKDF2 衍生金鑰 + AES-256-GCM
+     ========================================================= */
+  async function deriveKeyFromPassword(password, saltBytes, iterations) {
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      utf8Encode(password),
+      { name: "PBKDF2" },
+      false,
+      ["deriveKey"]
+    );
+    return crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: saltBytes,
+        iterations: iterations,
+        hash: "SHA-256",
+      },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+
+  async function generateVaultKey() {
+    return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, [
+      "encrypt",
+      "decrypt",
+    ]);
+  }
+
+  async function aesEncrypt(key, plaintextBytes) {
+    const iv = randomBytes(12);
+    const ct = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      plaintextBytes
+    );
+    return { iv: bufToB64(iv), ct: bufToB64(ct) };
+  }
+
+  async function aesDecrypt(key, ivB64, ctB64) {
+    const iv = new Uint8Array(b64ToBuf(ivB64));
+    const ctBuf = b64ToBuf(ctB64);
+    const plainBuf = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv },
+      key,
+      ctBuf
+    );
+    return plainBuf;
+  }
+
+  // 把 CryptoKey(AES-GCM) 匯出成 raw bytes，方便用另一把金鑰包裝它
+  async function exportKeyRaw(key) {
+    return crypto.subtle.exportKey("raw", key);
+  }
+
+  async function importKeyRaw(rawBuf) {
+    return crypto.subtle.importKey("raw", rawBuf, { name: "AES-GCM" }, true, [
+      "encrypt",
+      "decrypt",
+    ]);
+  }
+
+  /* =========================================================
+     Recovery Key：格式 XXXX-XXXX-XXXX-XXXX-XXXX（Base32 風格，避免混淆字元）
+     ========================================================= */
+  const RECOVERY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // 避開 0/O/1/I
+  function generateRecoveryKey() {
+    const groups = [];
+    for (let g = 0; g < 5; g++) {
+      let group = "";
+      const idxBytes = randomBytes(4);
+      for (let i = 0; i < 4; i++) {
+        group += RECOVERY_ALPHABET[idxBytes[i] % RECOVERY_ALPHABET.length];
+      }
+      groups.push(group);
+    }
+    return "VK-" + groups.join("-");
+  }
+
+  /* =========================================================
+     GitHub API
+     ========================================================= */
+  function githubApiBase() {
+    return `https://api.github.com/repos/${state.owner}/${state.repo}/contents/${state.path}`;
+  }
+
+  async function githubGetFile() {
+    const res = await fetch(`${githubApiBase()}?ref=${encodeURIComponent(state.branch)}`, {
+      headers: {
+        Authorization: `Bearer ${state.pat}`,
+        Accept: "application/vnd.github+json",
+      },
+    });
+    if (res.status === 404) {
+      return { exists: false };
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Token 無效或權限不足，請確認 PAT 是否正確、是否有此 repo 的 Contents 讀寫權限。");
+    }
+    if (!res.ok) {
+      throw new Error(`讀取失敗（HTTP ${res.status}）`);
+    }
+    const json = await res.json();
+    state.fileSha = json.sha;
+    const contentStr = decodeURIComponent(
+      escape(atob(json.content.replace(/\n/g, "")))
+    );
+    return { exists: true, content: JSON.parse(contentStr) };
+  }
+
+  async function githubPutFile(envelopeObj, commitMessage) {
+    const contentStr = JSON.stringify(envelopeObj, null, 2);
+    const b64Content = btoa(unescape(encodeURIComponent(contentStr)));
+    const body = {
+      message: commitMessage || "更新密碼庫",
+      content: b64Content,
+      branch: state.branch,
+    };
+    if (state.fileSha) {
+      body.sha = state.fileSha;
+    }
+    const res = await fetch(githubApiBase(), {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${state.pat}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`寫入失敗（HTTP ${res.status}）：${errText}`);
+    }
+    const json = await res.json();
+    state.fileSha = json.content.sha;
+    return json;
+  }
+
+  /* =========================================================
+     Envelope（vault.json 結構）
+     {
+       version: 1,
+       kdf: { iterations, saltMaster(b64), saltRecovery(b64) },
+       wrappedKeyMaster: { iv, ct },
+       wrappedKeyRecovery: { iv, ct },
+       data: { iv, ct }   // 加密後的 entries JSON
+     }
+     ========================================================= */
+
+  async function createNewVault(masterPassword) {
+    const saltMaster = randomBytes(16);
+    const saltRecovery = randomBytes(16);
+    const recoveryKeyPlain = generateRecoveryKey();
+
+    const vaultKey = await generateVaultKey();
+    const vaultKeyRaw = await exportKeyRaw(vaultKey);
+
+    const masterDerived = await deriveKeyFromPassword(
+      masterPassword,
+      saltMaster,
+      PBKDF2_ITERATIONS
+    );
+    const recoveryDerived = await deriveKeyFromPassword(
+      recoveryKeyPlain,
+      saltRecovery,
+      PBKDF2_ITERATIONS
+    );
+
+    const wrappedKeyMaster = await aesEncrypt(masterDerived, vaultKeyRaw);
+    const wrappedKeyRecovery = await aesEncrypt(recoveryDerived, vaultKeyRaw);
+
+    const emptyData = await aesEncrypt(vaultKey, utf8Encode(JSON.stringify([])));
+
+    const envelope = {
+      version: 1,
+      kdf: {
+        iterations: PBKDF2_ITERATIONS,
+        saltMaster: bufToB64(saltMaster),
+        saltRecovery: bufToB64(saltRecovery),
+      },
+      wrappedKeyMaster,
+      wrappedKeyRecovery,
+      data: emptyData,
+    };
+
+    return { envelope, vaultKey, recoveryKeyPlain };
+  }
+
+  async function unlockWithMasterPassword(envelope, masterPassword) {
+    const saltMaster = new Uint8Array(b64ToBuf(envelope.kdf.saltMaster));
+    const derived = await deriveKeyFromPassword(
+      masterPassword,
+      saltMaster,
+      envelope.kdf.iterations
+    );
+    const vaultKeyRaw = await aesDecrypt(
+      derived,
+      envelope.wrappedKeyMaster.iv,
+      envelope.wrappedKeyMaster.ct
+    );
+    return importKeyRaw(vaultKeyRaw);
+  }
+
+  async function unlockWithRecoveryKey(envelope, recoveryKey) {
+    const saltRecovery = new Uint8Array(b64ToBuf(envelope.kdf.saltRecovery));
+    const derived = await deriveKeyFromPassword(
+      recoveryKey.trim(),
+      saltRecovery,
+      envelope.kdf.iterations
+    );
+    const vaultKeyRaw = await aesDecrypt(
+      derived,
+      envelope.wrappedKeyRecovery.iv,
+      envelope.wrappedKeyRecovery.ct
+    );
+    return importKeyRaw(vaultKeyRaw);
+  }
+
+  async function rewrapKeyWithNewMasterPassword(envelope, vaultKey, newMasterPassword) {
+    const saltMaster = randomBytes(16);
+    const derived = await deriveKeyFromPassword(
+      newMasterPassword,
+      saltMaster,
+      PBKDF2_ITERATIONS
+    );
+    const vaultKeyRaw = await exportKeyRaw(vaultKey);
+    const wrappedKeyMaster = await aesEncrypt(derived, vaultKeyRaw);
+    envelope.kdf.saltMaster = bufToB64(saltMaster);
+    envelope.kdf.iterations = PBKDF2_ITERATIONS;
+    envelope.wrappedKeyMaster = wrappedKeyMaster;
+    return envelope;
+  }
+
+  async function decryptEntries(envelope, vaultKey) {
+    const plainBuf = await aesDecrypt(vaultKey, envelope.data.iv, envelope.data.ct);
+    return JSON.parse(utf8Decode(plainBuf));
+  }
+
+  async function encryptEntries(vaultKey, entries) {
+    return aesEncrypt(vaultKey, utf8Encode(JSON.stringify(entries)));
+  }
+
+  /* =========================================================
+     密碼產生器
+     ========================================================= */
+  const CHARSETS = {
+    upper: "ABCDEFGHJKLMNPQRSTUVWXYZ",
+    lower: "abcdefghijkmnopqrstuvwxyz",
+    digits: "23456789",
+    symbols: "!@#$%^&*()-_=+[]{}",
+  };
+
+  function secureRandomIndex(max) {
+    // 拒絕取樣，避免 modulo bias
+    const range = 256 - (256 % max);
+    let byte;
+    do {
+      byte = randomBytes(1)[0];
+    } while (byte >= range);
+    return byte % max;
+  }
+
+  function generatePassword(length, useUpper, useLower, useDigits, useSymbols) {
+    let pool = "";
+    const required = [];
+    if (useUpper) { pool += CHARSETS.upper; required.push(CHARSETS.upper); }
+    if (useLower) { pool += CHARSETS.lower; required.push(CHARSETS.lower); }
+    if (useDigits) { pool += CHARSETS.digits; required.push(CHARSETS.digits); }
+    if (useSymbols) { pool += CHARSETS.symbols; required.push(CHARSETS.symbols); }
+    if (!pool) pool = CHARSETS.lower + CHARSETS.digits;
+
+    let chars = [];
+    // 確保每種勾選的類型至少出現一次
+    for (const set of required) {
+      chars.push(set[secureRandomIndex(set.length)]);
+    }
+    while (chars.length < length) {
+      chars.push(pool[secureRandomIndex(pool.length)]);
+    }
+    // Fisher-Yates 洗牌
+    for (let i = chars.length - 1; i > 0; i--) {
+      const j = secureRandomIndex(i + 1);
+      [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+    return chars.slice(0, length).join("");
+  }
+
+  /* =========================================================
+     閒置自動鎖定 + 剪貼簿自動清除
+     ========================================================= */
+  function markActivity() {
+    state.lastActivity = Date.now();
+  }
+  ["click", "keydown", "mousemove", "touchstart"].forEach((evt) =>
+    document.addEventListener(evt, markActivity, { passive: true })
+  );
+
+  function startIdleWatcher() {
+    if (state.idleTimer) clearInterval(state.idleTimer);
+    state.idleTimer = setInterval(() => {
+      if (Date.now() - state.lastActivity > IDLE_LOCK_MS) {
+        lockVault();
+      }
+    }, 5000);
+  }
+
+  function lockVault() {
+    state.vaultKey = null;
+    state.entries = [];
+    state.pendingDuplicates = [];
+    if (state.idleTimer) clearInterval(state.idleTimer);
+    showScreen("unlock");
+    $("#unlock-master-password").value = "";
+  }
+
+  async function copyToClipboard(text, labelEl) {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (labelEl) {
+        const original = labelEl.textContent;
+        labelEl.textContent = "已複製";
+        setTimeout(() => (labelEl.textContent = original), 1200);
+      }
+      if (state.clipboardTimer) clearTimeout(state.clipboardTimer);
+      state.clipboardTimer = setTimeout(async () => {
+        try {
+          const current = await navigator.clipboard.readText();
+          if (current === text) {
+            await navigator.clipboard.writeText("");
+          }
+        } catch (e) {
+          /* 部分瀏覽器不允許讀取剪貼簿，忽略即可 */
+        }
+      }, CLIPBOARD_CLEAR_MS);
+    } catch (e) {
+      alert("複製失敗，瀏覽器可能不支援剪貼簿權限。");
+    }
+  }
+
+  /* =========================================================
+     GitHub 設定畫面
+     ========================================================= */
+  function loadGithubConfig() {
+    try {
+      const raw = localStorage.getItem(LS_CONFIG_KEY);
+      if (raw) {
+        const cfg = JSON.parse(raw);
+        state.owner = cfg.owner || "";
+        state.repo = cfg.repo || "";
+        state.path = cfg.path || "data/vault.json";
+        state.branch = cfg.branch || "main";
+      }
+    } catch (e) {
+      /* 忽略解析錯誤 */
+    }
+  }
+
+  function saveGithubConfig() {
+    localStorage.setItem(
+      LS_CONFIG_KEY,
+      JSON.stringify({
+        owner: state.owner,
+        repo: state.repo,
+        path: state.path,
+        branch: state.branch,
+      })
+    );
+  }
+
+  function initGithubConfigScreen() {
+    $("#cfg-owner").value = state.owner;
+    $("#cfg-repo").value = state.repo;
+    $("#cfg-path").value = state.path;
+    $("#cfg-branch").value = state.branch;
+  }
+
+  $("#btn-github-continue").addEventListener("click", async () => {
+    state.owner = $("#cfg-owner").value.trim();
+    state.repo = $("#cfg-repo").value.trim();
+    state.path = $("#cfg-path").value.trim() || "data/vault.json";
+    state.branch = $("#cfg-branch").value.trim() || "main";
+    state.pat = $("#cfg-pat").value.trim();
+
+    const errEl = $("#github-config-error");
+    errEl.textContent = "";
+
+    if (!state.owner || !state.repo || !state.pat) {
+      errEl.textContent = "請完整填寫 GitHub 帳號、repo 名稱與 Personal Access Token。";
+      return;
+    }
+
+    saveGithubConfig();
+
+    const btn = $("#btn-github-continue");
+    btn.disabled = true;
+    btn.textContent = "連線中…";
+    try {
+      const result = await githubGetFile();
+      if (!result.exists) {
+        showScreen("setup");
+      } else {
+        state.pendingEnvelope = result.content;
+        showScreen("unlock");
+      }
+    } catch (e) {
+      errEl.textContent = e.message || String(e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "連線並繼續";
+    }
+  });
+
+  /* =========================================================
+     首次建立 Vault（設定主密碼）
+     ========================================================= */
+  $("#setup-master-password").addEventListener("input", updateSetupStrength);
+  function updateSetupStrength() {
+    const pw = $("#setup-master-password").value;
+    const meter = $("#setup-strength-meter");
+    let score = 0;
+    if (pw.length >= 12) score++;
+    if (pw.length >= 16) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    const labels = ["非常弱", "弱", "普通", "強", "很強", "極強"];
+    meter.textContent = pw ? `強度：${labels[score]}` : "";
+    meter.className = "strength-meter s" + score;
+  }
+
+  $("#btn-setup-create").addEventListener("click", async () => {
+    const pw1 = $("#setup-master-password").value;
+    const pw2 = $("#setup-master-password-confirm").value;
+    const errEl = $("#setup-error");
+    errEl.textContent = "";
+
+    if (pw1.length < 8) {
+      errEl.textContent = "主密碼至少需要 8 個字元，建議 12 碼以上。";
+      return;
+    }
+    if (pw1 !== pw2) {
+      errEl.textContent = "兩次輸入的主密碼不一致。";
+      return;
+    }
+
+    const btn = $("#btn-setup-create");
+    btn.disabled = true;
+    btn.textContent = "建立中…";
+    try {
+      const { envelope, vaultKey, recoveryKeyPlain } = await createNewVault(pw1);
+      await githubPutFile(envelope, "初始化密碼庫");
+      state.vaultKey = vaultKey;
+      state.entries = [];
+      $("#recovery-key-display").textContent = recoveryKeyPlain;
+      showScreen("recoveryShow");
+    } catch (e) {
+      errEl.textContent = e.message || String(e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "建立密碼庫";
+    }
+  });
+
+  $("#btn-recovery-confirm").addEventListener("click", () => {
+    const checked = $("#recovery-confirm-checkbox").checked;
+    if (!checked) {
+      alert("請先勾選確認已保存 Recovery Key。");
+      return;
+    }
+    enterMainApp();
+  });
+
+  /* =========================================================
+     解鎖畫面
+     ========================================================= */
+  $("#btn-unlock").addEventListener("click", async () => {
+    const pw = $("#unlock-master-password").value;
+    const errEl = $("#unlock-error");
+    errEl.textContent = "";
+    const btn = $("#btn-unlock");
+    btn.disabled = true;
+    btn.textContent = "解鎖中…";
+    try {
+      const envelope = state.pendingEnvelope;
+      const vaultKey = await unlockWithMasterPassword(envelope, pw);
+      const entries = await decryptEntries(envelope, vaultKey);
+      state.vaultKey = vaultKey;
+      state.entries = entries;
+      enterMainApp();
+    } catch (e) {
+      errEl.textContent = "主密碼錯誤，或資料已損毀。";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "解鎖";
+    }
+  });
+
+  $("#link-forgot-password").addEventListener("click", (e) => {
+    e.preventDefault();
+    showScreen("recoveryUnlock");
+  });
+
+  $("#link-back-to-unlock").addEventListener("click", (e) => {
+    e.preventDefault();
+    showScreen("unlock");
+  });
+
+  $("#btn-recovery-unlock").addEventListener("click", async () => {
+    const recoveryKey = $("#recovery-key-input").value;
+    const newPw1 = $("#recovery-new-password").value;
+    const newPw2 = $("#recovery-new-password-confirm").value;
+    const errEl = $("#recovery-unlock-error");
+    errEl.textContent = "";
+
+    if (newPw1.length < 8) {
+      errEl.textContent = "新主密碼至少需要 8 個字元。";
+      return;
+    }
+    if (newPw1 !== newPw2) {
+      errEl.textContent = "兩次輸入的新主密碼不一致。";
+      return;
+    }
+
+    const btn = $("#btn-recovery-unlock");
+    btn.disabled = true;
+    btn.textContent = "驗證中…";
+    try {
+      const envelope = state.pendingEnvelope;
+      const vaultKey = await unlockWithRecoveryKey(envelope, recoveryKey);
+      const updatedEnvelope = await rewrapKeyWithNewMasterPassword(envelope, vaultKey, newPw1);
+      await githubPutFile(updatedEnvelope, "透過 Recovery Key 重設主密碼");
+      const entries = await decryptEntries(updatedEnvelope, vaultKey);
+      state.vaultKey = vaultKey;
+      state.entries = entries;
+      state.pendingEnvelope = updatedEnvelope;
+      alert("主密碼已成功重設。");
+      enterMainApp();
+    } catch (e) {
+      errEl.textContent = "Recovery Key 錯誤，或資料已損毀。";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "驗證並重設主密碼";
+    }
+  });
+
+  /* =========================================================
+     主畫面
+     ========================================================= */
+  function enterMainApp() {
+    showScreen("main");
+    startIdleWatcher();
+    renderEntryList();
+  }
+
+  function renderEntryList(filterText) {
+    const listEl = $("#entry-list");
+    listEl.innerHTML = "";
+    const filter = (filterText || "").trim().toLowerCase();
+
+    const filtered = state.entries.filter((e) => {
+      if (!filter) return true;
+      return (
+        (e.name || "").toLowerCase().includes(filter) ||
+        (e.url || "").toLowerCase().includes(filter) ||
+        (e.username || "").toLowerCase().includes(filter) ||
+        (e.notes || "").toLowerCase().includes(filter)
+      );
+    });
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">${
+        state.entries.length === 0 ? "尚未新增任何項目，點右上「新增」開始。" : "沒有符合搜尋的項目。"
+      }</div>`;
+      return;
+    }
+
+    filtered
+      .slice()
+      .sort((a, b) => (a.name || "").localeCompare(b.name || "", "zh-Hant"))
+      .forEach((entry) => {
+        const card = document.createElement("div");
+        card.className = "entry-card";
+        card.innerHTML = `
+          <div class="entry-main">
+            <div class="entry-name">${escapeHtml(entry.name)}</div>
+            <div class="entry-sub">${escapeHtml(entry.username || "")}</div>
+          </div>
+          <div class="entry-actions">
+            ${entry.url ? `<button class="icon-btn btn-open" title="開啟網址">🔗</button>` : ""}
+            <button class="icon-btn btn-copy-id" title="複製 ID">📋ID</button>
+            <button class="icon-btn btn-copy-pw" title="複製密碼">📋密碼</button>
+            <button class="icon-btn btn-edit" title="編輯">✏️</button>
+            <button class="icon-btn btn-delete" title="刪除">🗑️</button>
+          </div>
+        `;
+        if (entry.url) {
+          card.querySelector(".btn-open").addEventListener("click", () => {
+            window.open(entry.url, "_blank", "noopener");
+          });
+        }
+        card.querySelector(".btn-copy-id").addEventListener("click", (ev) => {
+          copyToClipboard(entry.username || "", ev.target);
+        });
+        card.querySelector(".btn-copy-pw").addEventListener("click", (ev) => {
+          copyToClipboard(entry.password || "", ev.target);
+        });
+        card.querySelector(".btn-edit").addEventListener("click", () => openEditModal(entry.id));
+        card.querySelector(".btn-delete").addEventListener("click", () => deleteEntry(entry.id));
+        listEl.appendChild(card);
+      });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str || "";
+    return div.innerHTML;
+  }
+
+  $("#search-input").addEventListener("input", (e) => {
+    renderEntryList(e.target.value);
+  });
+
+  $("#btn-lock").addEventListener("click", lockVault);
+
+  /* ---- 新增 / 編輯 modal ---- */
+  const modal = $("#entry-modal");
+  let editingId = null;
+
+  function openAddModal() {
+    editingId = null;
+    $("#modal-title").textContent = "新增項目";
+    $("#field-name").value = "";
+    $("#field-url").value = "";
+    $("#field-username").value = "";
+    $("#field-password").value = "";
+    $("#field-notes").value = "";
+    $("#modal-error").textContent = "";
+    modal.classList.add("active");
+  }
+
+  function openEditModal(id) {
+    const entry = state.entries.find((e) => e.id === id);
+    if (!entry) return;
+    editingId = id;
+    $("#modal-title").textContent = "編輯項目";
+    $("#field-name").value = entry.name || "";
+    $("#field-url").value = entry.url || "";
+    $("#field-username").value = entry.username || "";
+    $("#field-password").value = entry.password || "";
+    $("#field-notes").value = entry.notes || "";
+    $("#modal-error").textContent = "";
+    modal.classList.add("active");
+  }
+
+  $("#btn-add-entry").addEventListener("click", openAddModal);
+  $("#btn-modal-cancel").addEventListener("click", () => modal.classList.remove("active"));
+
+  $("#btn-modal-save").addEventListener("click", async () => {
+    const name = $("#field-name").value.trim();
+    const password = $("#field-password").value;
+    const errEl = $("#modal-error");
+    errEl.textContent = "";
+
+    if (!name) {
+      errEl.textContent = "名稱為必填。";
+      return;
+    }
+    if (!password) {
+      errEl.textContent = "密碼為必填。";
+      return;
+    }
+
+    const now = new Date().toISOString();
+    if (editingId) {
+      const entry = state.entries.find((e) => e.id === editingId);
+      entry.name = name;
+      entry.url = $("#field-url").value.trim();
+      entry.username = $("#field-username").value.trim();
+      entry.password = password;
+      entry.notes = $("#field-notes").value;
+      entry.updatedAt = now;
+    } else {
+      state.entries.push({
+        id: crypto.randomUUID(),
+        name,
+        url: $("#field-url").value.trim(),
+        username: $("#field-username").value.trim(),
+        password,
+        notes: $("#field-notes").value,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    modal.classList.remove("active");
+    renderEntryList($("#search-input").value);
+    await persistVault("更新密碼項目");
+  });
+
+  async function deleteEntry(id) {
+    const entry = state.entries.find((e) => e.id === id);
+    if (!entry) return;
+    if (!confirm(`確定要刪除「${entry.name}」嗎？此動作無法復原。`)) return;
+    state.entries = state.entries.filter((e) => e.id !== id);
+    renderEntryList($("#search-input").value);
+    await persistVault("刪除密碼項目");
+  }
+
+  /* ---- 密碼產生器 ---- */
+  const genPanel = $("#generator-panel");
+  $("#btn-open-generator").addEventListener("click", () => {
+    genPanel.classList.toggle("active");
+    if (genPanel.classList.contains("active")) runGenerator();
+  });
+  ["#gen-length", "#gen-upper", "#gen-lower", "#gen-digits", "#gen-symbols"].forEach((sel) => {
+    $(sel).addEventListener("input", runGenerator);
+  });
+  $("#btn-gen-refresh").addEventListener("click", runGenerator);
+  $("#btn-gen-use").addEventListener("click", () => {
+    $("#field-password").value = $("#gen-output").value;
+    genPanel.classList.remove("active");
+  });
+
+  function runGenerator() {
+    const length = parseInt($("#gen-length").value, 10);
+    $("#gen-length-label").textContent = length;
+    const pw = generatePassword(
+      length,
+      $("#gen-upper").checked,
+      $("#gen-lower").checked,
+      $("#gen-digits").checked,
+      $("#gen-symbols").checked
+    );
+    $("#gen-output").value = pw;
+  }
+
+  /* =========================================================
+     儲存回 GitHub
+     ========================================================= */
+  async function persistVault(message) {
+    const statusEl = $("#sync-status");
+    statusEl.textContent = "儲存中…";
+    try {
+      const dataBlock = await encryptEntries(state.vaultKey, state.entries);
+      state.pendingEnvelope.data = dataBlock;
+      await githubPutFile(state.pendingEnvelope, message);
+      statusEl.textContent = "已儲存到 GitHub";
+      setTimeout(() => (statusEl.textContent = ""), 2500);
+    } catch (e) {
+      statusEl.textContent = "";
+      alert("儲存失敗：" + (e.message || e));
+    }
+  }
+
+  /* =========================================================
+     Excel 匯出
+     ========================================================= */
+  $("#btn-export-excel").addEventListener("click", () => {
+    $("#export-confirm-password").value = "";
+    $("#export-confirm-error").textContent = "";
+    $("#export-confirm-modal").classList.add("active");
+  });
+  $("#btn-export-cancel").addEventListener("click", () => {
+    $("#export-confirm-modal").classList.remove("active");
+  });
+  $("#btn-export-confirm").addEventListener("click", async () => {
+    const pw = $("#export-confirm-password").value;
+    const errEl = $("#export-confirm-error");
+    errEl.textContent = "";
+    try {
+      // 重新驗證主密碼：用它重新解一次 wrappedKeyMaster，若失敗就是密碼錯誤
+      await unlockWithMasterPassword(state.pendingEnvelope, pw);
+    } catch (e) {
+      errEl.textContent = "主密碼錯誤。";
+      return;
+    }
+    doExportExcel();
+    $("#export-confirm-modal").classList.remove("active");
+  });
+
+  function doExportExcel() {
+    const rows = [["名稱", "網址", "ID", "密碼", "備註"]];
+    state.entries.forEach((e) => {
+      rows.push([e.name || "", e.url || "", e.username || "", e.password || "", e.notes || ""]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [{ wch: 20 }, { wch: 28 }, { wch: 26 }, { wch: 22 }, { wch: 32 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "密碼資料");
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `password_backup_${dateStr}.xlsx`);
+  }
+
+  /* =========================================================
+     Excel 匯入
+     ========================================================= */
+  $("#btn-import-excel").addEventListener("click", () => {
+    $("#import-file-input").value = "";
+    $("#import-file-input").click();
+  });
+
+  $("#import-file-input").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    // 第一列視為標題，從第二列開始讀（跳過空白列）
+    const imported = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const name = (row[0] || "").toString().trim();
+      const url = (row[1] || "").toString().trim();
+      const username = (row[2] || "").toString().trim();
+      const password = (row[3] || "").toString().trim();
+      const notes = (row[4] || "").toString().trim();
+      if (!name && !password) continue; // 跳過完全空白列
+      imported.push({ name, url, username, password, notes });
+    }
+
+    if (imported.length === 0) {
+      alert("這個檔案裡沒有偵測到可匯入的資料。");
+      return;
+    }
+
+    processImport(imported);
+  });
+
+  function processImport(imported) {
+    const duplicates = [];
+    const newOnes = [];
+    imported.forEach((item) => {
+      if (!item.name || !item.password) return; // 必填缺漏就跳過
+      const existing = state.entries.find(
+        (e) => e.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+      );
+      if (existing) {
+        duplicates.push({ imported: item, existing });
+      } else {
+        newOnes.push(item);
+      }
+    });
+
+    // 沒有重複名稱的，直接加入
+    newOnes.forEach((item) => {
+      const now = new Date().toISOString();
+      state.entries.push({
+        id: crypto.randomUUID(),
+        name: item.name,
+        url: item.url,
+        username: item.username,
+        password: item.password,
+        notes: item.notes,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    if (duplicates.length > 0) {
+      state.pendingDuplicates = duplicates;
+      renderDuplicateResolution();
+      $("#import-duplicates-modal").classList.add("active");
+    } else {
+      renderEntryList($("#search-input").value);
+      persistVault(`匯入 Excel（新增 ${newOnes.length} 筆）`);
+      alert(`匯入完成，新增 ${newOnes.length} 筆項目。`);
+    }
+  }
+
+  function renderDuplicateResolution() {
+    const container = $("#duplicates-list");
+    container.innerHTML = "";
+    state.pendingDuplicates.forEach((dup, idx) => {
+      const row = document.createElement("div");
+      row.className = "duplicate-row";
+      row.innerHTML = `
+        <div class="duplicate-name">「${escapeHtml(dup.imported.name)}」與現有項目名稱重複</div>
+        <div class="duplicate-options">
+          <label><input type="radio" name="dup-${idx}" value="overwrite" checked /> 覆蓋現有項目</label>
+          <label><input type="radio" name="dup-${idx}" value="add" /> 新增為另一筆</label>
+          <label><input type="radio" name="dup-${idx}" value="skip" /> 略過</label>
+        </div>
+      `;
+      container.appendChild(row);
+    });
+  }
+
+  $("#btn-duplicates-apply").addEventListener("click", async () => {
+    let overwriteCount = 0, addCount = 0, skipCount = 0;
+    state.pendingDuplicates.forEach((dup, idx) => {
+      const choice = document.querySelector(`input[name="dup-${idx}"]:checked`).value;
+      const now = new Date().toISOString();
+      if (choice === "overwrite") {
+        Object.assign(dup.existing, {
+          url: dup.imported.url,
+          username: dup.imported.username,
+          password: dup.imported.password,
+          notes: dup.imported.notes,
+          updatedAt: now,
+        });
+        overwriteCount++;
+      } else if (choice === "add") {
+        state.entries.push({
+          id: crypto.randomUUID(),
+          name: dup.imported.name,
+          url: dup.imported.url,
+          username: dup.imported.username,
+          password: dup.imported.password,
+          notes: dup.imported.notes,
+          createdAt: now,
+          updatedAt: now,
+        });
+        addCount++;
+      } else {
+        skipCount++;
+      }
+    });
+    state.pendingDuplicates = [];
+    $("#import-duplicates-modal").classList.remove("active");
+    renderEntryList($("#search-input").value);
+    await persistVault("匯入 Excel（含重複項目處理）");
+    alert(`匯入完成：覆蓋 ${overwriteCount} 筆、新增 ${addCount} 筆、略過 ${skipCount} 筆。`);
+  });
+
+  $("#btn-duplicates-cancel").addEventListener("click", () => {
+    state.pendingDuplicates = [];
+    $("#import-duplicates-modal").classList.remove("active");
+    renderEntryList($("#search-input").value);
+  });
+
+  /* =========================================================
+     初始化
+     ========================================================= */
+  loadGithubConfig();
+  initGithubConfigScreen();
+  showScreen("githubConfig");
+})();
+
+</script>
+</body>
+</html>
