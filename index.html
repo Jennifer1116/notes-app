@@ -987,11 +987,15 @@ button {
   }
 
   $("#btn-github-continue").addEventListener("click", async () => {
-    state.owner = $("#cfg-owner").value.trim();
-    state.repo = $("#cfg-repo").value.trim();
-    state.path = $("#cfg-path").value.trim() || "data/vault.json";
-    state.branch = $("#cfg-branch").value.trim() || "main";
-    state.pat = $("#cfg-pat").value.trim();
+    // 過濾掉不可見/非 ASCII 字元（常見於複製貼上時夾帶零寬字元），
+    // 避免瀏覽器 fetch API 因 header 含非 ISO-8859-1 字元而報錯
+    const sanitizeAscii = (s) => (s || "").replace(/[^\x21-\x7E]/g, "");
+
+    state.owner = sanitizeAscii($("#cfg-owner").value.trim());
+    state.repo = sanitizeAscii($("#cfg-repo").value.trim());
+    state.path = sanitizeAscii($("#cfg-path").value.trim()) || "data/vault.json";
+    state.branch = sanitizeAscii($("#cfg-branch").value.trim()) || "main";
+    state.pat = sanitizeAscii($("#cfg-pat").value.trim());
 
     const errEl = $("#github-config-error");
     errEl.textContent = "";
